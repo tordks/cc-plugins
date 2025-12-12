@@ -581,7 +581,7 @@ rel_points = [[x / width, y / height] for x, y in points]
 points_tensor = torch.tensor(rel_points, dtype=torch.float32)
 labels_tensor = torch.tensor([1], dtype=torch.int32)
 
-_, obj_ids, low_res_masks, video_res_masks = predictor.add_new_points_or_box(
+_, obj_ids, low_res_masks, video_res_masks = predictor.add_new_points(
     inference_state=inference_state,
     frame_idx=0,
     obj_id=1,
