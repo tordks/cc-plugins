@@ -96,10 +96,36 @@ from PIL import Image
 image = Image.open("path/to/image.jpg")
 inference_state = processor.set_image(image)
 
-# Get image dimensions from state
+# Get image dimensions from state (singular keys for single image)
 width = inference_state["original_width"]
 height = inference_state["original_height"]
 ```
+
+### Batch Image Processing
+
+For efficient multi-image inference:
+
+```python
+from PIL import Image
+
+images = [Image.open(f"image_{i}.jpg") for i in range(3)]
+inference_state = processor.set_image_batch(images)
+
+# Get dimensions (plural keys for batch)
+widths = inference_state["original_widths"]   # List[int]
+heights = inference_state["original_heights"]  # List[int]
+
+# Apply prompt to all images
+inference_state = processor.set_text_prompt(state=inference_state, prompt="person")
+
+# Results are batched - access per image
+for i in range(len(images)):
+    masks_i = inference_state["masks"][i]
+    boxes_i = inference_state["boxes"][i]
+    scores_i = inference_state["scores"][i]
+```
+
+**Key difference**: Single image uses `original_width`/`original_height`, batch uses `original_widths`/`original_heights` (plural).
 
 ### Text Prompts
 
@@ -113,9 +139,14 @@ processor.reset_all_prompts(inference_state)
 inference_state = processor.set_text_prompt(state=inference_state, prompt="shoe")
 
 # Access results
-masks = inference_state["masks"]   # List of mask tensors
-boxes = inference_state["boxes"]   # List of box tensors (xyxy format)
-scores = inference_state["scores"] # List of confidence scores
+masks = inference_state["masks"]   # Tensor: (N, H, W) boolean masks where N = detected objects
+boxes = inference_state["boxes"]   # Tensor: (N, 4) boxes in xyxy pixel format
+scores = inference_state["scores"] # Tensor: (N,) confidence scores
+
+# For batch processing, results are lists of tensors:
+# masks[i] = (N_i, H, W) for image i
+# boxes[i] = (N_i, 4) for image i
+# scores[i] = (N_i,) for image i
 ```
 
 ### Geometric Prompts (Bounding Boxes)
@@ -273,6 +304,11 @@ masks, scores, _ = model.predict_inst(
 )
 # masks.shape: (batch_size, num_masks, H, W)
 ```
+
+### predict_inst Tips
+
+- **Multimask output**: `multimask_output=True` returns 3 candidate masks for ambiguous prompts (single point). Use `False` for specific prompts (multiple points, box, or refined) to get a single mask
+- **Logit refinement**: Pass previous `logits` to `mask_input` for iterative refinement
 
 ## Batched Inference API (DataPoint)
 
@@ -495,9 +531,9 @@ predictor.handle_request(
     request=dict(type="remove_object", session_id=session_id, obj_id=2)
 )
 
-# Point prompt (relative coordinates 0-1)
-points = torch.tensor([[0.5, 0.5]], dtype=torch.float32)
-labels = torch.tensor([1], dtype=torch.int32)
+# Point prompt (relative coordinates 0-1, plain Python lists)
+points = [[0.5, 0.5]]  # List[List[float]]
+labels = [1]  # List[int]: 1=positive, 0=negative
 response = predictor.handle_request(
     request=dict(
         type="add_prompt",
@@ -506,6 +542,19 @@ response = predictor.handle_request(
         points=points,
         point_labels=labels,
         obj_id=2,
+    )
+)
+
+# Box prompt (xywh format, normalized 0-1)
+boxes = [[0.3, 0.2, 0.4, 0.5]]  # List[List[float]]: [x, y, w, h]
+box_labels = [1]  # List[int]: 1=positive, 0=negative
+response = predictor.handle_request(
+    request=dict(
+        type="add_prompt",
+        session_id=session_id,
+        frame_index=0,
+        bounding_boxes=boxes,
+        bounding_box_labels=box_labels,
     )
 )
 
@@ -532,7 +581,7 @@ rel_points = [[x / width, y / height] for x, y in points]
 points_tensor = torch.tensor(rel_points, dtype=torch.float32)
 labels_tensor = torch.tensor([1], dtype=torch.int32)
 
-_, obj_ids, low_res_masks, video_res_masks = predictor.add_new_points(
+_, obj_ids, low_res_masks, video_res_masks = predictor.add_new_points_or_box(
     inference_state=inference_state,
     frame_idx=0,
     obj_id=1,
@@ -579,22 +628,21 @@ predictor.clear_all_points_in_video(inference_state)
 | `predict_inst` box | xyxy | pixels |
 | Batched API `input_bbox` | xyxy | pixels |
 | Video Predictor points | xy | normalized 0-1 |
+| Video Predictor bounding_boxes | xywh | normalized 0-1 |
 | SAM2-Style Tracker points | xy | normalized 0-1 |
 | SAM2-Style Tracker box | xyxy | normalized 0-1 |
 
 **Video API comparison:**
 - **Video Predictor** (`build_sam3_video_predictor`): Multi-GPU, session-based `handle_request()` API, supports text prompts
-- **SAM2-Style Tracker** (`build_sam3_video_model().tracker`): Single-GPU, `add_new_points()`/`add_new_points_or_box()` API, no text prompts
+- **SAM2-Style Tracker** (`build_sam3_video_model().tracker`): Single-GPU, `add_new_points_or_box()` API , no text prompts, uses tensors
 
 ## Important Notes
 
-1. **Reset prompts**: Always call `processor.reset_all_prompts(state)` before switching prompt types
+1. **Reset prompts**: Call `processor.reset_all_prompts(state)` to clear previous results when reusing the same `inference_state` for a new query. Not needed after `set_image()` which returns a fresh state
 2. **Inference triggers**: `add_geometric_prompt()` and `set_text_prompt()` automatically run inference
-3. **Multimask output**: Use `multimask_output=True` for ambiguous single-point prompts
-4. **Logit refinement**: Pass previous `logits` to `mask_input` for iterative refinement
-5. **Video sessions**: Each session is tied to one video; close to free GPU memory
-6. **Text + geometric prompts**: The `Sam3Processor` API (`set_text_prompt`, `add_geometric_prompt`) does not support combining text and geometric prompts. Use the batched DataPoint API instead, which allows text hints with box prompts via `FindQueryLoaded(query_text="hint", input_bbox=...)`
-7. **Negative-only boxes**: Require text prompt hint (use batched API with `query_text`)
+3. **Video sessions**: Each session is tied to one video; close to free GPU memory
+4. **Text + geometric prompts**: The `Sam3Processor` API (`set_text_prompt`, `add_geometric_prompt`) does not support combining text and geometric prompts. Use the batched DataPoint API instead, which allows text hints with box prompts via `FindQueryLoaded(query_text="hint", input_bbox=...)`
+5. **Negative-only boxes**: Require text prompt hint (use batched API with `query_text`)
 
 ## Visualization
 
