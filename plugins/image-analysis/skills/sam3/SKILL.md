@@ -578,8 +578,13 @@ predictor.clear_all_points_in_video(inference_state)
 | `predict_inst` points | xy | pixels |
 | `predict_inst` box | xyxy | pixels |
 | Batched API `input_bbox` | xyxy | pixels |
-| Video tracker points | xy | normalized 0-1 |
-| Video tracker box | xyxy | normalized 0-1 |
+| Video Predictor points | xy | normalized 0-1 |
+| SAM2-Style Tracker points | xy | normalized 0-1 |
+| SAM2-Style Tracker box | xyxy | normalized 0-1 |
+
+**Video API comparison:**
+- **Video Predictor** (`build_sam3_video_predictor`): Multi-GPU, session-based `handle_request()` API, supports text prompts
+- **SAM2-Style Tracker** (`build_sam3_video_model().tracker`): Single-GPU, `add_new_points()`/`add_new_points_or_box()` API, no text prompts
 
 ## Important Notes
 
@@ -588,8 +593,8 @@ predictor.clear_all_points_in_video(inference_state)
 3. **Multimask output**: Use `multimask_output=True` for ambiguous single-point prompts
 4. **Logit refinement**: Pass previous `logits` to `mask_input` for iterative refinement
 5. **Video sessions**: Each session is tied to one video; close to free GPU memory
-6. **Text prompt limitation**: Cannot combine text with geometric prompts in single query
-7. **Negative-only boxes**: Require text prompt hint when using only negative boxes
+6. **Text + geometric prompts**: The `Sam3Processor` API (`set_text_prompt`, `add_geometric_prompt`) does not support combining text and geometric prompts. Use the batched DataPoint API instead, which allows text hints with box prompts via `FindQueryLoaded(query_text="hint", input_bbox=...)`
+7. **Negative-only boxes**: Require text prompt hint (use batched API with `query_text`)
 
 ## Visualization
 
