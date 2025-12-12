@@ -1,17 +1,18 @@
-# claude-plugins
+# cc-plugins
 
 Personal collection of Claude Code plugins.
 
 ## Installation
 
 ```bash
-# Add this marketplace
-/plugin marketplace add /path/to/claude-plugins
+# Add from local
+/plugin marketplace add /path/to/cc-plugins
+
 # Or from GitHub:
-/plugin marketplace add tordks/claude-plugins
+/plugin marketplace add tordks/cc-plugins
 
 # Install a specific plugin
-/plugin install image-analysis@claude-plugins
+/plugin install image-analysis@cc-plugins
 ```
 
 ## Available Plugins
@@ -23,14 +24,14 @@ Personal collection of Claude Code plugins.
 ## Structure
 
 ```
-claude-plugins/
+cc-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json       # Marketplace manifest
+│   └── marketplace.json
 ├── plugins/
-│   └── image-analysis/        # Image segmentation plugin
+│   └── image-analysis/
 │       ├── .claude-plugin/
 │       │   └── plugin.json
 │       └── skills/
-│           └── sam3/          # SAM3 API guidance
+│           └── sam3/
 └── README.md
 ```

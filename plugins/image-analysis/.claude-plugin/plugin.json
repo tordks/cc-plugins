@@ -1,7 +1,7 @@
 {
   "name": "image-analysis",
-  "version": "1.0.0",
-  "description": "Image and video segmentation tools including SAM3 (Segment Anything Model 3)",
+  "version": "0.1.0",
+  "description": "Image and video segmentation tools",
   "author": {
     "name": "tordks"
   },
