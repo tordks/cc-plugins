@@ -43,19 +43,14 @@ huggingface-cli login  # Required for model weight downloads
 ### Image Model
 
 ```python
-import sam3
-from sam3 import build_sam3_image_model
+from sam3.model_builder import build_sam3_image_model
 from sam3.model.sam3_image_processor import Sam3Processor
 
-# Get SAM3 root path for assets
-sam3_root = os.path.join(os.path.dirname(sam3.__file__), "..")
-bpe_path = f"{sam3_root}/assets/bpe_simple_vocab_16e6.txt.gz"
-
-# Build model (downloads weights automatically)
-model = build_sam3_image_model(bpe_path=bpe_path)
+# Build model (downloads weights automatically from HuggingFace)
+model = build_sam3_image_model()
 
 # For SAM1-style point prompts, enable instance interactivity
-model = build_sam3_image_model(bpe_path=bpe_path, enable_inst_interactivity=True)
+model = build_sam3_image_model(enable_inst_interactivity=True)
 
 # Create processor with confidence threshold
 processor = Sam3Processor(model, confidence_threshold=0.5)
@@ -189,7 +184,7 @@ For interactive point-based segmentation, use `predict_inst`:
 import numpy as np
 
 # Build model with instance interactivity enabled
-model = build_sam3_image_model(bpe_path=bpe_path, enable_inst_interactivity=True)
+model = build_sam3_image_model(enable_inst_interactivity=True)
 processor = Sam3Processor(model)
 
 # Set image
