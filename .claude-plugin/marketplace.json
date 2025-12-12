@@ -1,0 +1,18 @@
+{
+  "name": "claude-plugins",
+  "description": "Multi-plugin marketplace for Claude Code",
+  "owner": {
+    "name": "tordks"
+  },
+  "plugins": [
+    {
+      "name": "image-analysis",
+      "description": "Image and video segmentation tools including SAM3",
+      "version": "1.0.0",
+      "source": "./plugins/image-analysis",
+      "author": {
+        "name": "tordks"
+      }
+    }
+  ]
+}
